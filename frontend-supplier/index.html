@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supplier Panel — Dukaan</title>
+<style>
+  :root {
+    --ink: #1a1a1a; --paper: #faf8f5; --accent: #2f5d50;
+    --accent-light: #e8f0ec; --line: #e2ddd4; --muted: #7a7468;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--paper); color: var(--ink); }
+  header { background: var(--ink); color: var(--paper); padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 20px; font-weight: 700; }
+  #logout-btn { background: #444; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; display: none; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 24px; }
+  .box { background: white; border: 1px solid var(--line); border-radius: 10px; padding: 24px; margin-bottom: 20px; }
+  h2 { margin-bottom: 16px; font-size: 18px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; font-weight: 600; }
+  input, textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; font-size: 14px; font-family: inherit; }
+  button.primary { margin-top: 18px; width: 100%; background: var(--accent); color: white; border: none; padding: 12px; border-radius: 6px; font-weight: 700; cursor: pointer; }
+  .toggle-link { text-align: center; margin-top: 14px; font-size: 13px; color: var(--accent); cursor: pointer; }
+  #status-bar { background: var(--accent-light); border: 1px solid var(--accent); border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 14px; color: var(--accent); display: none; }
+  #status-bar.show { display: block; }
+  .product-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .badge { font-size: 11px; padding: 3px 8px; border-radius: 20px; font-weight: 700; }
+  .badge.pending { background: #fdf0d5; color: #b8860b; }
+  .badge.approved { background: var(--accent-light); color: var(--accent); }
+  .badge.rejected { background: #fde2e2; color: #c0392b; }
+  #app-view { display: none; }
+  #auth-view { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Supplier Panel</h1>
+  <button id="logout-btn" onclick="logout()">Logout</button>
+</header>
+
+<main>
+  <div id="status-bar"></div>
+
+  <div id="auth-view">
+    <div class="box" id="register-box">
+      <h2>Naya Supplier Register Karein</h2>
+      <label>Naam</label><input id="reg-name">
+      <label>Email</label><input id="reg-email" type="email">
+      <label>Phone</label><input id="reg-phone">
+      <label>Password</label><input id="reg-password" type="password">
+      <label>Business Naam</label><input id="reg-business">
+      <label>GST Number</label><input id="reg-gst">
+      <label>Address</label><input id="reg-address">
+      <button class="primary" onclick="registerSupplier()">Register Karein</button>
+      <div class="toggle-link" onclick="showLogin()">Pehle se account hai? Login karein</div>
+    </div>
+
+    <div class="box" id="login-box" style="display:none">
+      <h2>Login</h2>
+      <label>Email</label><input id="login-email" type="email">
+      <label>Password</label><input id="login-password" type="password">
+      <button class="primary" onclick="loginSupplier()">Login Karein</button>
+      <div class="toggle-link" onclick="showRegister()">Naya account banayein</div>
+    </div>
+  </div>
+
+  <div id="app-view">
+    <div class="box">
+      <h2>Naya Product Add Karein</h2>
+      <label>Product Naam</label><input id="p-name">
+      <label>Description</label><textarea id="p-desc" rows="2"></textarea>
+      <label>Image URL (koi bhi image link — Google Drive, Imgur, etc.)</label><input id="p-image" placeholder="https://...">
+      <label>Category</label><input id="p-category">
+      <label>GST Rate (%)</label>
+      <select id="p-gst">
+        <option value="0">0%</option>
+        <option value="5">5%</option>
+        <option value="12">12%</option>
+        <option value="18" selected>18%</option>
+        <option value="28">28%</option>
+      </select>
+      <label>HSN Code</label><input id="p-hsn" placeholder="jaise 6109">
+      <label>Aapka Suggested Price (₹)</label><input id="p-price" type="number">
+      <label>Stock (quantity)</label><input id="p-stock" type="number">
+      <button class="primary" onclick="addProduct()">Product Add Karein</button>
+      <p style="font-size:12px;color:var(--muted);margin-top:8px">
+        Note: Ye price sirf suggestion hai — final price admin/member approve karega.
+      </p>
+    </div>
+
+    <div class="box">
+      <h2>Aapke Products</h2>
+      <div id="my-products">Loading...</div>
+    </div>
+
+    <div class="box">
+      <h2>Aapke Product Ke Orders</h2>
+      <div id="my-orders">Loading...</div>
+    </div>
+  </div>
+</main>
+
+<script>
+  const API_BASE = "http://localhost:5000/api";
+
+  function showStatus(message, isError = false) {
+    const bar = document.getElementById('status-bar');
+    bar.textContent = message;
+    bar.style.borderColor = isError ? '#c0392b' : 'var(--accent)';
+    bar.style.color = isError ? '#c0392b' : 'var(--accent)';
+    bar.classList.add('show');
+    setTimeout(() => bar.classList.remove('show'), 5000);
+  }
+
+  function showLogin() {
+    document.getElementById('register-box').style.display = 'none';
+    document.getElementById('login-box').style.display = 'block';
+  }
+  function showRegister() {
+    document.getElementById('register-box').style.display = 'block';
+    document.getElementById('login-box').style.display = 'none';
+  }
+
+  async function registerSupplier() {
+    try {
+      const res = await fetch(`${API_BASE}/auth/supplier/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: document.getElementById('reg-name').value,
+          email: document.getElementById('reg-email').value,
+          phone: document.getElementById('reg-phone').value,
+          password: document.getElementById('reg-password').value,
+          businessName: document.getElementById('reg-business').value,
+          gstNumber: document.getElementById('reg-gst').value,
+          address: document.getElementById('reg-address').value,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      showStatus(data.message);
+      showLogin();
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  }
+
+  async function loginSupplier() {
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: document.getElementById('login-email').value,
+          password: document.getElementById('login-password').value,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      if (data.user.role !== 'supplier') throw new Error('Ye account supplier nahi hai');
+
+      localStorage.setItem('supplierToken', data.token);
+      enterApp();
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  }
+
+  function enterApp() {
+    document.getElementById('auth-view').style.display = 'none';
+    document.getElementById('app-view').style.display = 'block';
+    document.getElementById('logout-btn').style.display = 'inline-block';
+    loadMyProducts();
+    loadMyOrders();
+  }
+
+  function logout() {
+    localStorage.removeItem('supplierToken');
+    location.reload();
+  }
+
+  async function addProduct() {
+    const token = localStorage.getItem('supplierToken');
+    try {
+      const res = await fetch(`${API_BASE}/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: document.getElementById('p-name').value,
+          description: document.getElementById('p-desc').value,
+          category: document.getElementById('p-category').value,
+          gstRate: Number(document.getElementById('p-gst').value),
+          hsnCode: document.getElementById('p-hsn').value,
+          supplierSuggestedPrice: Number(document.getElementById('p-price').value),
+          stock: Number(document.getElementById('p-stock').value),
+          images: document.getElementById('p-image').value ? [document.getElementById('p-image').value] : [],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      showStatus(data.message);
+      document.getElementById('p-name').value = '';
+      document.getElementById('p-desc').value = '';
+      document.getElementById('p-category').value = '';
+      document.getElementById('p-price').value = '';
+      document.getElementById('p-stock').value = '';
+      loadMyProducts();
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  }
+
+  async function loadMyProducts() {
+    const token = localStorage.getItem('supplierToken');
+    try {
+      const res = await fetch(`${API_BASE}/products/my-products`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const products = await res.json();
+      if (!products.length) {
+        document.getElementById('my-products').innerHTML =
+          '<p style="font-size:13px;color:var(--muted)">Abhi koi product add nahi kiya.</p>';
+        return;
+      }
+      document.getElementById('my-products').innerHTML = products.map(p => `
+        <div class="product-row">
+          <span>${p.name} — ₹${p.supplierSuggestedPrice} (suggested)</span>
+          <span class="badge ${p.status}">${p.status}</span>
+        </div>
+      `).join('');
+    } catch (err) {
+      document.getElementById('my-products').innerHTML =
+        '<p style="font-size:13px;color:var(--muted)">Load nahi ho paya.</p>';
+    }
+  }
+
+  async function loadMyOrders() {
+    const token = localStorage.getItem('supplierToken');
+    try {
+      const meRes = await fetch(`${API_BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      const me = await meRes.json();
+
+      const res = await fetch(`${API_BASE}/orders/supplier-orders`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const orders = await res.json();
+      const el = document.getElementById('my-orders');
+      if (!orders.length) {
+        el.innerHTML = '<p style="font-size:13px;color:var(--muted)">Abhi koi order nahi aaya.</p>';
+        return;
+      }
+      el.innerHTML = orders.map(o => {
+        const myItems = o.items.filter(i => i.supplier === me.id);
+        return `
+          <div class="product-row">
+            <span>${o.orderNumber} — Status: ${o.status}</span>
+            <span style="font-size:12px;color:var(--muted)">Aapko milega: ₹${myItems.reduce((s, i) => s + i.supplierPayoutAmount, 0)}</span>
+          </div>
+        `;
+      }).join('');
+    } catch (err) {
+      document.getElementById('my-orders').innerHTML =
+        '<p style="font-size:13px;color:var(--muted)">Load nahi ho paya.</p>';
+    }
+  }
+
+  if (localStorage.getItem('supplierToken')) enterApp();
+</script>
+
+</body>
+        </html>
