@@ -195,4 +195,175 @@
     const res = await fetch(`${API_BASE}/products/pending`, { headers: authHeader() });
     const products = await res.json();
     const el = document.getElementById('products-list');
-    if (!products.length) { el
+    if (!products.length) { el.innerHTML = '<p style="color:var(--muted);font-size:13px">Koi pending product nahi.</p>'; return; }
+    el.innerHTML = products.map(p => `
+      <div class="item-row">
+        <div class="item-title">${p.name}</div>
+        <div class="item-meta">Supplier suggested: ₹${p.supplierSuggestedPrice} | ${p.supplier?.supplierDetails?.businessName || ''}</div>
+        <div class="approve-form">
+          <input type="number" id="final-${p._id}" placeholder="Final ₹">
+          <input type="number" id="selling-${p._id}" placeholder="Selling ₹">
+          <button class="btn-small" onclick="approveProduct('${p._id}')">Approve</button>
+          <button class="btn-small btn-reject" onclick="rejectProduct('${p._id}')">Reject</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function approveProduct(id) {
+    const finalPrice = Number(document.getElementById(`final-${id}`).value);
+    const sellingPrice = Number(document.getElementById(`selling-${id}`).value);
+    if (!finalPrice || !sellingPrice) { showStatus('Dono price dalna zaroori hai', true); return; }
+
+    const res = await fetch(`${API_BASE}/products/${id}/approve`, {
+      method: 'PUT',
+      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ finalPrice, sellingPrice }),
+    });
+    const data = await res.json();
+    if (!res.ok) { showStatus(data.message, true); return; }
+    showStatus(data.message);
+    loadProducts();
+  }
+
+  async function rejectProduct(id) {
+    const res = await fetch(`${API_BASE}/products/${id}/reject`, { method: 'PUT', headers: authHeader() });
+    const data = await res.json();
+    showStatus(data.message);
+    loadProducts();
+  }
+
+  const nextStatus = {
+    placed: 'supplier_notified',
+    supplier_notified: 'received_at_warehouse',
+    received_at_warehouse: 'packed',
+    packed: 'out_for_delivery',
+    out_for_delivery: 'delivered',
+  };
+
+  async function loadOrders() {
+    const res = await fetch(`${API_BASE}/orders`, { headers: authHeader() });
+    const orders = await res.json();
+    const el = document.getElementById('orders-list');
+    if (!orders.length) { el.innerHTML = '<p style="color:var(--muted);font-size:13px">Koi order nahi.</p>'; return; }
+    el.innerHTML = orders.map(o => `
+      <div class="item-row">
+        <div class="item-title">${o.orderNumber} — ₹${o.totalAmount}</div>
+        <div class="item-meta">${o.customer?.name || ''} | Status: ${o.status} | ${o.paymentMethod.toUpperCase()}</div>
+        ${nextStatus[o.status] ? `<button class="btn-small" onclick="updateOrderStatus('${o._id}', '${nextStatus[o.status]}')">Mark: ${nextStatus[o.status]}</button>` : ''}
+      </div>
+    `).join('');
+  }
+
+  async function updateOrderStatus(id, status) {
+    const res = await fetch(`${API_BASE}/orders/${id}/status`, {
+      method: 'PUT',
+      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    const data = await res.json();
+    showStatus(data.message);
+    loadOrders();
+    loadSettlements();
+  }
+
+  async function loadSettlements() {
+    const res = await fetch(`${API_BASE}/orders/settlements/due`, { headers: authHeader() });
+    const orders = await res.json();
+    const el = document.getElementById('settlements-list');
+    if (!orders.length) { el.innerHTML = '<p style="color:var(--muted);font-size:13px">Abhi koi settlement due nahi.</p>'; return; }
+    el.innerHTML = orders.map(o => `
+      <div class="item-row">
+        <div class="item-title">${o.orderNumber} — ₹${o.totalAmount}</div>
+        <div class="item-meta">Delivered, 7 din poore ho gaye — payout ready</div>
+        <button class="btn-small" onclick="settleOrder('${o._id}')">Payout Bhej Diya — Mark Settled</button>
+      </div>
+    `).join('');
+  }
+
+  async function settleOrder(id) {
+    const res = await fetch(`${API_BASE}/orders/${id}/settle`, { method: 'PUT', headers: authHeader() });
+    const data = await res.json();
+    showStatus(data.message);
+    loadSettlements();
+  }
+
+  async function addMember() {
+    const name = document.getElementById('m-name').value;
+    const email = document.getElementById('m-email').value;
+    const phone = document.getElementById('m-phone').value;
+    const password = document.getElementById('m-password').value;
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/members`, {
+        method: 'POST',
+        headers: { ...authHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, phone, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      showStatus(data.message);
+      document.getElementById('m-name').value = '';
+      document.getElementById('m-email').value = '';
+      document.getElementById('m-phone').value = '';
+      document.getElementById('m-password').value = '';
+      loadMembers();
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  }
+
+  async function loadMembers() {
+    try {
+      const res = await fetch(`${API_BASE}/admin/members`, { headers: authHeader() });
+      const members = await res.json();
+      const el = document.getElementById('members-list');
+      if (!res.ok) { el.innerHTML = `<p style="color:var(--muted);font-size:13px">${members.message || 'Sirf admin ye dekh sakta hai'}</p>`; return; }
+      if (!members.length) { el.innerHTML = '<p style="color:var(--muted);font-size:13px">Abhi koi member nahi hai.</p>'; return; }
+      el.innerHTML = members.map(m => `
+        <div class="item-row">
+          <div class="item-title">${m.name}</div>
+          <div class="item-meta">${m.email} | ${m.phone}</div>
+        </div>
+      `).join('');
+    } catch (err) {
+      document.getElementById('members-list').innerHTML = '<p style="color:var(--muted);font-size:13px">Load nahi ho paya.</p>';
+    }
+  }
+
+  async function loadGSTReport() {
+    const startDate = document.getElementById('gst-start').value;
+    const endDate = document.getElementById('gst-end').value;
+    if (!startDate || !endDate) { showStatus('Dono dates dalna zaroori hai', true); return; }
+
+    try {
+      const res = await fetch(`${API_BASE}/orders/gst-report?startDate=${startDate}&endDate=${endDate}`, { headers: authHeader() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      const rateRows = Object.entries(data.rateWiseSummary).map(([rate, val]) => `
+        <div class="item-row">
+          <div class="item-title">GST ${rate}%</div>
+          <div class="item-meta">Taxable Amount: ₹${val.taxableAmount.toFixed(2)} | GST Amount: ₹${val.gstAmount.toFixed(2)}</div>
+        </div>
+      `).join('');
+
+      document.getElementById('gst-result').innerHTML = `
+        <div class="item-row">
+          <div class="item-title">Total Orders: ${data.totalOrders}</div>
+          <div class="item-meta">Total Sales: ₹${data.totalSales} | Total Taxable: ₹${data.totalTaxableAmount} | Total GST Collected: ₹${data.totalGSTCollected}</div>
+        </div>
+        <h3 style="margin:14px 0 6px;font-size:15px">Rate-wise Breakdown (GSTR-1 ke liye)</h3>
+        ${rateRows || '<p style="color:var(--muted);font-size:13px">Is period me koi order nahi.</p>'}
+        <p style="font-size:12px;color:var(--muted);margin-top:12px">${data.note}</p>
+      `;
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  }
+
+  if (localStorage.getItem('adminToken')) enterApp();
+</script>
+
+</body>
+  </html>
