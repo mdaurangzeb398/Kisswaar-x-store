@@ -286,4 +286,182 @@ app.put('/api/products/:id/approve', protect, authorize('admin', 'member'), asyn
 
     const product = await Product.findByIdAndUpdate(
       req.params.id,
-      { finalPr
+      { finalPrice, sellingPrice, status: 'approved', approvedBy: req.user._id, approvedAt: new Date() },
+      { new: true }
+    );
+    if (!product) return res.status(404).json({ message: 'Product nahi mila' });
+    res.json({ message: 'Product approve ho gaya, ab Customer App pe live hai', product });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.put('/api/products/:id/reject', protect, authorize('admin', 'member'), async (req, res) => {
+  const product = await Product.findByIdAndUpdate(req.params.id, { status: 'rejected' }, { new: true });
+  res.json({ message: 'Product reject kar diya', product });
+});
+
+app.get('/api/products', async (req, res) => {
+  const products = await Product.find({ status: 'approved', isActive: true }).select('-supplierSuggestedPrice -finalPrice -supplier');
+  res.json(products);
+});
+
+app.post('/api/orders', protect, authorize('customer'), async (req, res) => {
+  try {
+    const { items, paymentMethod, deliveryAddress } = req.body;
+    if (!items || items.length === 0) return res.status(400).json({ message: 'Order me kam se kam ek product hona chahiye' });
+
+    let totalAmount = 0;
+    let totalGST = 0;
+    const orderItems = [];
+
+    for (const item of items) {
+      const product = await Product.findById(item.productId);
+      if (!product || product.status !== 'approved') return res.status(400).json({ message: `Product available nahi hai: ${item.productId}` });
+      if (product.stock < item.quantity) return res.status(400).json({ message: `${product.name} me stock kam hai` });
+
+      const lineTotal = product.sellingPrice * item.quantity;
+      const taxableAmount = +(lineTotal / (1 + product.gstRate / 100)).toFixed(2);
+      const gstAmount = +(lineTotal - taxableAmount).toFixed(2);
+
+      orderItems.push({
+        product: product._id, supplier: product.supplier, quantity: item.quantity,
+        priceAtOrder: product.sellingPrice, supplierPayoutAmount: product.finalPrice * item.quantity,
+        gstRate: product.gstRate, hsnCode: product.hsnCode, taxableAmount, gstAmount,
+      });
+
+      totalAmount += lineTotal;
+      totalGST += gstAmount;
+      product.stock -= item.quantity;
+      await product.save();
+    }
+
+    const orderNumber = generateOrderNumber();
+    const order = await Order.create({
+      orderNumber, invoiceNumber: `INV-${orderNumber}`, customer: req.user._id, items: orderItems,
+      totalAmount, totalGST: +totalGST.toFixed(2), paymentMethod, paymentStatus: 'pending',
+      deliveryAddress, status: 'placed',
+    });
+
+    res.status(201).json({ message: 'Order place ho gaya', order });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.get('/api/orders/my-orders', protect, authorize('customer'), async (req, res) => {
+  const orders = await Order.find({ customer: req.user._id }).sort({ createdAt: -1 });
+  res.json(orders);
+});
+
+app.get('/api/orders/supplier-orders', protect, authorize('supplier'), async (req, res) => {
+  const orders = await Order.find({ 'items.supplier': req.user._id }).sort({ createdAt: -1 });
+  res.json(orders);
+});
+
+app.get('/api/orders', protect, authorize('admin', 'member'), async (req, res) => {
+  const orders = await Order.find().populate('customer', 'name phone').sort({ createdAt: -1 });
+  res.json(orders);
+});
+
+app.put('/api/orders/:id/status', protect, authorize('admin', 'member'), async (req, res) => {
+  try {
+    const { status } = req.body;
+    const validStatuses = ['supplier_notified', 'received_at_warehouse', 'packed', 'out_for_delivery', 'delivered', 'cancelled'];
+    if (!validStatuses.includes(status)) return res.status(400).json({ message: 'Invalid status' });
+
+    const updateData = { status };
+    if (status === 'delivered') {
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 7);
+      updateData['settlement.settlementDueDate'] = dueDate;
+      const order = await Order.findById(req.params.id);
+      if (order.paymentMethod === 'cod') updateData.paymentStatus = 'paid';
+    }
+
+    const order = await Order.findByIdAndUpdate(req.params.id, updateData, { new: true });
+    if (!order) return res.status(404).json({ message: 'Order nahi mila' });
+    res.json({ message: `Order status "${status}" ho gaya`, order });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.get('/api/orders/settlements/due', protect, authorize('admin', 'member'), async (req, res) => {
+  const orders = await Order.find({
+    status: 'delivered', 'settlement.isSettled': false, 'settlement.settlementDueDate': { $lte: new Date() },
+  }).populate('items.supplier', 'name supplierDetails.businessName supplierDetails.bankDetails');
+  res.json(orders);
+});
+
+app.put('/api/orders/:id/settle', protect, authorize('admin', 'member'), async (req, res) => {
+  const order = await Order.findByIdAndUpdate(
+    req.params.id,
+    { 'settlement.isSettled': true, 'settlement.settledAt': new Date() },
+    { new: true }
+  );
+  if (!order) return res.status(404).json({ message: 'Order nahi mila' });
+  res.json({ message: 'Settlement complete — supplier ko payout mark kar diya', order });
+});
+
+app.get('/api/orders/gst-report', protect, authorize('admin', 'member'), async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    if (!startDate || !endDate) return res.status(400).json({ message: 'startDate aur endDate dena zaroori hai' });
+
+    const orders = await Order.find({
+      createdAt: { $gte: new Date(startDate), $lte: new Date(endDate + 'T23:59:59') },
+      status: { $ne: 'cancelled' },
+    });
+
+    const rateWiseSummary = {};
+    let totalTaxableAmount = 0, totalGSTCollected = 0, totalSales = 0;
+
+    orders.forEach((order) => {
+      totalSales += order.totalAmount;
+      totalGSTCollected += order.totalGST;
+      order.items.forEach((item) => {
+        const rate = item.gstRate;
+        if (!rateWiseSummary[rate]) rateWiseSummary[rate] = { taxableAmount: 0, gstAmount: 0 };
+        rateWiseSummary[rate].taxableAmount += item.taxableAmount;
+        rateWiseSummary[rate].gstAmount += item.gstAmount;
+        totalTaxableAmount += item.taxableAmount;
+      });
+    });
+
+    res.json({
+      period: { startDate, endDate }, totalOrders: orders.length,
+      totalSales: +totalSales.toFixed(2), totalTaxableAmount: +totalTaxableAmount.toFixed(2),
+      totalGSTCollected: +totalGSTCollected.toFixed(2), rateWiseSummary,
+      note: 'Ye summary reference ke liye hai. Final return file karte waqt apne CA/accountant se verify zaroor karwa lena.',
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.get('/api/orders/:id/invoice', protect, authorize('admin', 'member'), async (req, res) => {
+  const order = await Order.findById(req.params.id).populate('customer', 'name email phone address').populate('items.product', 'name');
+  if (!order) return res.status(404).json({ message: 'Order nahi mila' });
+
+  res.json({
+    invoiceNumber: order.invoiceNumber, invoiceDate: order.createdAt, customer: order.customer,
+    items: order.items.map((item) => ({
+      productName: item.product?.name, hsnCode: item.hsnCode, quantity: item.quantity,
+      rate: item.priceAtOrder, taxableAmount: item.taxableAmount, gstRate: item.gstRate,
+      gstAmount: item.gstAmount, total: item.priceAtOrder * item.quantity,
+    })),
+    totalTaxableAmount: order.items.reduce((s, i) => s + i.taxableAmount, 0),
+    totalGST: order.totalGST, grandTotal: order.totalAmount,
+  });
+});
+
+app.post('/api/admin/members', protect, authorize('admin'), async (req, res) => {
+  try {
+    const { name, email, phone, password } = req.body;
+    const existing = await User.findOne({ email });
+    if (existing) return res.status(400).json({ message: 'Ye email pehle se register hai' });
+
+    const member = await User.create({ name, email, phone, password, role: 'member' });
+    res.status(201).json({ message: 'Member add ho gaya', member: { id: member._id, name: member.name } });
+  } catch (
