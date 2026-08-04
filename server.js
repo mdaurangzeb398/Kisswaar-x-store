@@ -548,7 +548,25 @@ function startSettlementReminder() {
   });
   console.log('Settlement reminder cron job start ho gaya (roz 9 AM check karega)');
 }
-
+app.get('/setup-first-admin', async (req, res) => {
+  try {
+    const secretKey = req.query.key;
+    if (secretKey !== 'dukaan786setup') {
+      return res.status(403).json({ message: 'Galat key' });
+    }
+    const existing = await User.findOne({ role: 'admin' });
+    if (existing) {
+      return res.json({ message: 'Admin already ban chuka hai', email: existing.email });
+    }
+    const admin = await User.create({
+      name: 'Admin', email: 'admin@dukaan.com', phone: '9999999999',
+      password: 'Admin@786', role: 'admin',
+    });
+    res.json({ message: 'Admin ban gaya! Email: admin@dukaan.com, Password: Admin@786', admin: admin.email });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 app.get('/', (req, res) => res.json({ message: 'Marketplace API chal raha hai' }));
 
 const PORT = process.env.PORT || 5000;
