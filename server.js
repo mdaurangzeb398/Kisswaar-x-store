@@ -468,4 +468,92 @@ app.post('/api/admin/members', protect, authorize('admin'), async (req, res) => 
     if (existing) return res.status(400).json({ message: 'Ye email pehle se register hai' });
 
     const member = await User.create({ name, email, phone, password, role: 'member' });
+
+    res.status(201).json({ message: 'Member add ho gaya', member: { id: member._id, name: member.name } });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.get('/api/admin/members', protect, authorize('admin'), async (req, res) => {
+  const members = await User.find({ role: 'member' }).select('-password');
+  res.json(members);
+});
+
+app.get('/api/admin/suppliers/pending', protect, authorize('admin', 'member'), async (req, res) => {
+  const suppliers = await User.find({ role: 'supplier', 'supplierDetails.isVerified': false }).select('-password');
+  res.json(suppliers);
+});
+
+app.put('/api/admin/suppliers/:id/verify', protect, authorize('admin', 'member'), async (req, res) => {
+  const supplier = await User.findByIdAndUpdate(req.params.id, { 'supplierDetails.isVerified': true }, { new: true }).select('-password');
+  if (!supplier) return res.status(404).json({ message: 'Supplier nahi mila' });
+  res.json({ message: 'Supplier verify ho gaya, ab wo login aur product add kar sakta hai', supplier });
+});
+
+app.post('/api/payments/create-razorpay-order/:orderId', protect, authorize('customer'), async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.orderId);
+    if (!order) return res.status(404).json({ message: 'Order nahi mila' });
+    if (order.customer.toString() !== req.user._id.toString()) return res.status(403).json({ message: 'Ye order aapka nahi hai' });
+    if (order.paymentStatus === 'paid') return res.status(400).json({ message: 'Ye order already paid hai' });
+
+    const razorpayOrder = await razorpayInstance.orders.create({
+      amount: Math.round(order.totalAmount * 100), currency: 'INR', receipt: order.orderNumber,
+    });
+
+    order.razorpay.orderId = razorpayOrder.id;
+    await order.save();
+
+    res.json({ razorpayOrderId: razorpayOrder.id, amount: razorpayOrder.amount, currency: razorpayOrder.currency, key: process.env.RAZORPAY_KEY_ID });
+  } catch (error) {
+    res.status(500).json({ message: 'Payment start nahi ho paya: ' + error.message });
+  }
+});
+
+app.post('/api/payments/verify', protect, authorize('customer'), async (req, res) => {
+  try {
+    const { orderId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    const expectedSignature = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`).digest('hex');
+
+    if (expectedSignature !== razorpay_signature) return res.status(400).json({ message: 'Payment verify nahi hui — signature match nahi hua' });
+
+    const order = await Order.findByIdAndUpdate(
+      orderId,
+      { paymentStatus: 'paid', 'razorpay.paymentId': razorpay_payment_id, 'razorpay.signature': razorpay_signature },
+      { new: true }
+    );
+    res.json({ message: 'Payment successful', order });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+function startSettlementReminder() {
+  cron.schedule('0 9 * * *', async () => {
+    try {
+      const dueOrders = await Order.find({
+        status: 'delivered', 'settlement.isSettled': false, 'settlement.settlementDueDate': { $lte: new Date() },
+      });
+      if (dueOrders.length > 0) {
+        console.log(`[Settlement Reminder] ${dueOrders.length} order(s) ka payout due hai:`);
+        dueOrders.forEach((o) => console.log(` - ${o.orderNumber}: ₹${o.totalAmount}`));
+      } else {
+        console.log('[Settlement Reminder] Aaj koi payout due nahi hai');
+      }
+    } catch (error) {
+      console.error('[Settlement Reminder] Error:', error.message);
+    }
+  });
+  console.log('Settlement reminder cron job start ho gaya (roz 9 AM check karega)');
+}
+
+app.get('/', (req, res) => res.json({ message: 'Marketplace API chal raha hai' }));
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server chal raha hai port ${PORT} par`);
+  startSettlementReminder();
+});
   
