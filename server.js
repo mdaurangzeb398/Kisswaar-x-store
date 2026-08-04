@@ -34,10 +34,15 @@ mongoose
   .then(() => console.log('Database se connect ho gaya'))
   .catch((err) => console.error('Database connection fail:', err.message));
 
-const razorpayInstance = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || 'not_configured',
-  key_secret: process.env.RAZORPAY_KEY_SECRET || 'not_configured',
-});
+let razorpayInstance = null;
+try {
+  razorpayInstance = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_1234567890',
+    key_secret: process.env.RAZORPAY_KEY_SECRET || 'placeholder',
+  });
+} catch (err) {
+  console.log('Razorpay setup skip ho gaya:', err.message);
+}
 
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const isValidPhone = (phone) => /^[6-9]\d{9}$/.test(phone);
