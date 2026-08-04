@@ -468,5 +468,4 @@ app.post('/api/admin/members', protect, authorize('admin'), async (req, res) => 
     if (existing) return res.status(400).json({ message: 'Ye email pehle se register hai' });
 
     const member = await User.create({ name, email, phone, password, role: 'member' });
-    res.status(201).json({ message: 'Member add ho gaya', member: { id: member._id, name: member.name } });
-  } catch (
+  
