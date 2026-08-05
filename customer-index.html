@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dukaan — Online Shopping</title>
+<style>
+  :root {
+    --navy: #131921;
+    --navy-light: #232f3e;
+    --accent: #ff6b35;
+    --accent-dark: #e85a2a;
+    --price: #067d62;
+    --star: #ffa41c;
+    --bg: #eaeded;
+    --card: #ffffff;
+    --line: #d5d9d9;
+    --text: #0f1111;
+    --muted: #565959;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", -apple-system, Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- HEADER ---------- */
+  header {
+    background: var(--navy);
+    padding: 10px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  }
+  .header-top { display: flex; align-items: center; gap: 8px; }
+  .logo {
+    color: white; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;
+    white-space: nowrap; display: flex; align-items: baseline; gap: 2px;
+  }
+  .logo .dot { color: var(--accent); }
+  .search-wrap { flex: 1; display: flex; border-radius: 4px; overflow: hidden; min-width: 0; }
+  #search-input { flex: 1; border: none; padding: 9px 12px; font-size: 14px; outline: none; min-width: 0; }
+  #search-btn { background: var(--accent); border: none; padding: 0 12px; cursor: pointer; display: flex; align-items: center; }
+  .header-actions { display: flex; align-items: center; gap: 2px; }
+  .icon-btn {
+    background: none; border: none; color: white; padding: 6px 6px; border-radius: 4px;
+    cursor: pointer; font-size: 12px; display: flex; flex-direction: column; align-items: center;
+    line-height: 1.2; white-space: nowrap; position: relative;
+  }
+  .icon-btn:active { background: rgba(255,255,255,0.08); }
+  .icon-btn .top-line { font-size: 9.5px; color: #ccc; }
+  .icon-btn .bottom-line { font-weight: 700; font-size: 12.5px; }
+  .badge-dot {
+    position: absolute; top: 0; right: 0; background: var(--accent); color: white;
+    font-size: 9px; font-weight: 800; border-radius: 50%; width: 15px; height: 15px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .header-second {
+    background: var(--navy-light); margin: 10px -16px -10px; padding: 8px 16px;
+    display: flex; gap: 14px; overflow-x: auto; scrollbar-width: none;
+  }
+  .header-second::-webkit-scrollbar { display: none; }
+  .header-second span { color: #ddd; font-size: 12px; white-space: nowrap; cursor: pointer; }
+  .header-second span.active { color: var(--accent); font-weight: 700; }
+
+  #status-bar {
+    background: #fef6e0; border-bottom: 1px solid #f0d68a; padding: 10px 16px;
+    font-size: 13px; color: #7a5b00; display: none;
+  }
+  #status-bar.show { display: block; }
+  #status-bar.error { background: #fdecea; border-color: #f5b7b1; color: #a4231d; }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 16px 10px 40px; }
+  .section-title { font-size: 15px; font-weight: 700; padding: 4px 6px 12px; display: flex; justify-content: space-between; align-items: center; }
+  .section-title .clear-link { font-size: 12px; color: var(--accent); font-weight: 600; cursor: pointer; }
+
+  .rail { display: flex; gap: 10px; overflow-x: auto; padding: 2px 6px 16px; scrollbar-width: none; }
+  .rail::-webkit-scrollbar { display: none; }
+  .rail .card { min-width: 130px; max-width: 130px; }
+
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  @media (min-width: 620px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 860px) { .grid { grid-template-columns: repeat(4, 1fr); } }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 6px;
+    padding: 10px; display: flex; flex-direction: column; gap: 4px; position: relative;
+  }
+  .wishlist-btn {
+    position: absolute; top: 6px; right: 6px; background: rgba(255,255,255,0.9); border: none;
+    border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 14px; z-index: 2;
+  }
+  .wishlist-btn.active { color: #cc0c39; }
+  .wishlist-btn:not(.active) { color: #999; }
+  .card-img {
+    width: 100%; aspect-ratio: 1 / 1; background: #f5f5f5; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center; color: #b0b0b0;
+    font-size: 12px; overflow: hidden; margin-bottom: 4px; cursor: pointer;
+  }
+  .card-img img { width: 100%; height: 100%; object-fit: cover; }
+  .card h3 {
+    font-size: 13px; font-weight: 500; line-height: 1.3; color: var(--text); cursor: pointer;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .rating-row { display: flex; align-items: center; gap: 4px; font-size: 11px; }
+  .rating-badge { background: var(--price); color: white; padding: 1px 5px; border-radius: 3px; font-weight: 700; display: flex; align-items: center; gap: 2px; }
+  .rating-count { color: var(--muted); }
+  .price-row { display: flex; align-items: baseline; gap: 6px; margin-top: 2px; }
+  .price-row .rupee { font-size: 12px; }
+  .price-row .price { font-size: 17px; font-weight: 700; }
+  .stock-badge { font-size: 10.5px; font-weight: 600; }
+  .stock-badge.in { color: var(--price); }
+  .stock-badge.out { color: #cc0c39; }
+  .card-buttons { display: flex; gap: 6px; margin-top: 6px; }
+  .add-btn {
+    flex: 1; background: #ffd814; border: 1px solid #fcd200; color: var(--text);
+    padding: 7px; border-radius: 18px; font-weight: 600; font-size: 11.5px; cursor: pointer;
+  }
+  .add-btn:disabled { background: #eee; border-color: #ddd; color: #999; }
+  #empty-state { text-align: center; padding: 80px 20px; color: var(--muted); grid-column: 1 / -1; }
+
+  /* ---------- MODALS ---------- */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 50;
+    align-items: center; justify-content: center; padding: 16px;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-box { background: white; border-radius: 8px; padding: 24px; width: 100%; max-width: 340px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); max-height: 85vh; overflow-y: auto; }
+  .modal-box h2 { font-size: 18px; margin-bottom: 16px; font-weight: 700; }
+  .field-label { display: block; font-size: 12.5px; font-weight: 700; margin-bottom: 4px; }
+  .field-input { width: 100%; padding: 9px 10px; border: 1px solid #a6a6a6; border-radius: 4px; font-size: 14px; margin-bottom: 12px; outline: none; }
+  .field-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,107,53,0.15); }
+  .modal-submit { width: 100%; background: #ffd814; border: 1px solid #fcd200; padding: 10px; border-radius: 20px; font-weight: 700; font-size: 14px; cursor: pointer; }
+  .modal-toggle { text-align: center; margin-top: 14px; font-size: 12.5px; color: #007185; cursor: pointer; }
+  .modal-close { float: right; background: none; border: none; font-size: 18px; cursor: pointer; }
+
+  /* ---------- PRODUCT DETAIL MODAL ---------- */
+  .pd-img { width: 100%; aspect-ratio: 1/1; background: #f5f5f5; border-radius: 6px; overflow: hidden; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; color: #b0b0b0; }
+  .pd-img img { width: 100%; height: 100%; object-fit: cover; }
+  .pd-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+  .pd-desc { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+  .stars { color: var(--star); }
+  .review-item { border-top: 1px solid var(--line); padding: 10px 0; font-size: 13px; }
+  .review-item .rname { font-weight: 700; }
+  .rate-input { display: flex; gap: 4px; margin-bottom: 8px; }
+  .rate-input span { font-size: 22px; cursor: pointer; color: #ccc; }
+  .rate-input span.on { color: var(--star); }
+
+  /* ---------- CART DRAWER ---------- */
+  #cart-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 40; }
+  #cart-overlay.show { display: block; }
+  #cart-panel {
+    position: fixed; top: 0; right: -400px; width: min(380px, 92vw); height: 100%;
+    background: white; box-shadow: -6px 0 24px rgba(0,0,0,0.15); transition: right 0.25s ease;
+    z-index: 41; display: flex; flex-direction: column;
+  }
+  #cart-panel.open { right: 0; }
+  .cart-header { background: var(--navy); color: white; padding: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .cart-header h2 { font-size: 17px; font-weight: 700; }
+  .cart-header button { background: none; border: none; color: white; font-size: 20px; cursor: pointer; }
+  #cart-items { flex: 1; overflow-y: auto; padding: 12px 16px; }
+  .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  .cart-item .name { font-weight: 500; }
+  .cart-item .qty-controls { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+  .cart-item .qty-controls button { border: 1px solid var(--line); background: white; width: 22px; height: 22px; border-radius: 4px; cursor: pointer; }
+  .save-later-link { font-size: 11px; color: #007185; cursor: pointer; margin-top: 3px; }
+  .cart-footer { padding: 14px 16px; border-top: 1px solid var(--line); }
+  .coupon-row { display: flex; gap: 6px; margin-bottom: 10px; }
+  .coupon-row input { flex: 1; padding: 8px 10px; border: 1px solid var(--line); border-radius: 4px; font-size: 13px; }
+  .coupon-row button { background: var(--navy); color: white; border: none; padding: 0 14px; border-radius: 4px; font-size: 12.5px; cursor: pointer; }
+  .coupon-applied { font-size: 12px; color: var(--price); margin-bottom: 8px; }
+  .cart-total-row { display: flex; justify-content: space-between; font-size: 13.5px; margin-bottom: 4px; }
+  .cart-grand-total { display: flex; justify-content: space-between; font-size: 17px; font-weight: 700; margin: 8px 0 14px; }
+  .pm-select { width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 6px; font-size: 14px; margin-bottom: 12px; }
+  #checkout-btn { width: 100%; background: var(--accent); color: white; border: none; padding: 13px; border-radius: 24px; font-weight: 700; font-size: 14.5px; cursor: pointer; }
+  .empty-cart { text-align: center; color: var(--muted); padding: 40px 20px; font-size: 13.5px; }
+
+  /* ---------- NOTIFICATIONS PANEL ---------- */
+  #notif-panel {
+    position: fixed; top: 0; right: -340px; width: min(320px, 90vw); height: 100%;
+    background: white; box-shadow: -6px 0 24px rgba(0,0,0,0.15); transition: right 0.25s ease; z-index: 41;
+  }
+  #notif-panel.open { right: 0; }
+  .notif-item { padding: 12px 16px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .notif-item.unread { background: #fff8f0; }
+
+  footer { background: var(--navy); color: #ccc; padding: 24px 16px; margin-top: 30px; font-size: 12.5px; text-align: center; }
+  footer a { color: #ccc; text-decoration: underline; }
+</style>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <div class="logo">Dukaan<span class="dot">.</span></div>
+    <div class="search-wrap">
+      <input id="search-input" type="text" placeholder="Product dhundo..." oninput="filterProducts()">
+      <button id="search-btn" onclick="filterProducts()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" onclick="openNotifications()">
+        <span class="top-line">🔔</span><span class="bottom-line">Alerts</span>
+        <span class="badge-dot" id="notif-badge" style="display:none">0</span>
+      </button>
+      <button class="icon-btn" onclick="openWishlist()">
+        <span class="top-line">♡</span><span class="bottom-line">Wishlist</span>
+      </button>
+      <button class="icon-btn" id="login-nav-btn" onclick="toggleAuth()">
+        <span class="top-line" id="login-greeting">Hello, Login</span>
+        <span class="bottom-line" id="login-label">Account</span>
+      </button>
+      <button class="icon-btn" onclick="toggleCart()">
+        <span class="top-line">Cart</span>
+        <span class="bottom-line">₹<span id="cart-total-mini">0</span></span>
+        <span class="badge-dot" id="cart-count-badge">0</span>
+      </button>
+    </div>
+  </div>
+  <div class="header-second" id="category-strip">
+    <span class="active" onclick="filterByCategory('')">Sab</span>
+  </div>
+</header>
+
+<div id="status-bar"></div>
+
+<main>
+  <div id="recently-viewed-section" style="display:none">
+    <div class="section-title">Recently Viewed</div>
+    <div class="rail" id="recently-viewed-rail"></div>
+  </div>
+
+  <div class="section-title" id="section-title">Sab Products</div>
+  <div id="products" class="grid"></div>
+  <div id="empty-state" style="display:none"></div>
+</main>
+
+<footer>
+  Dukaan &copy; 2026 — <a href="./frontend-policies/index.html">Policies (Privacy, Terms, Return, Refund, Shipping aur baaki)</a>
+</footer>
+
+<!-- Auth Modal -->
+<div id="auth-overlay" class="modal-overlay" onclick="if(event.target===this)toggleAuth()">
+  <div class="modal-box">
+    <h2 id="auth-title">Login Karein</h2>
+    <div id="auth-name-field" style="display:none">
+      <label class="field-label">Poora Naam</label>
+      <input id="auth-name" class="field-input">
+    </div>
+    <label class="field-label">Email</label>
+    <input id="auth-email" type="email" class="field-input">
+    <div id="auth-phone-field" style="display:none">
+      <label class="field-label">Phone Number</label>
+      <input id="auth-phone" class="field-input">
+    </div>
+    <label class="field-label">Password</label>
+    <input id="auth-password" type="password" class="field-input">
+    <button class="modal-submit" onclick="submitAuth()">Continue</button>
+    <div class="modal-toggle" onclick="toggleAuthMode()" id="auth-toggle-text">Naya account banayein</div>
+  </div>
+</div>
+
+<!-- Product Detail Modal -->
+<div id="pd-overlay" class="modal-overlay" onclick="if(event.target===this)closeProductDetail()">
+  <div class="modal-box" style="max-width:420px">
+    <button class="modal-close" onclick="closeProductDetail()">✕</button>
+    <div id="pd-content"></div>
+  </div>
+</div>
+
+<!-- Wishlist Modal -->
+<div id="wishlist-overlay" class="modal-overlay" onclick="if(event.target===this)closeWishlist()">
+  <div class="modal-box" style="max-width:500px">
+    <button class="modal-close" onclick="closeWishlist()">✕</button>
+    <h2>Aapki Wishlist</h2>
+    <div id="wishlist-content" class="grid" style="grid-template-columns:repeat(2,1fr)"></div>
+  </div>
+</div>
+
+<!-- Notifications Panel -->
+<div id="notif-panel">
+  <div class="cart-header">
+    <h2>Notifications</h2>
+    <button onclick="closeNotifications()">✕</button>
+  </div>
+  <div id="notif-list" style="overflow-y:auto;height:calc(100% - 60px)"></div>
+</div>
+
+<!-- Cart Drawer -->
+<div id="cart-overlay" onclick="toggleCart()"></div>
+<div id="cart-panel">
+  <div class="cart-header">
+    <h2>Aapka Cart</h2>
+    <button onclick="toggleCart()">✕</button>
+  </div>
+  <div id="cart-items"></div>
+  <div class="cart-footer">
+    <div class="coupon-row">
+      <input id="coupon-input" placeholder="Coupon code">
+      <button onclick="applyCoupon()">Apply</button>
+    </div>
+    <div id="coupon-applied-msg"></div>
+    <div class="cart-total-row"><span>Subtotal</span><span>₹<span id="cart-subtotal">0</span></span></div>
+    <div class="cart-total-row" id="discount-row" style="display:none;color:var(--price)"><span>Discount</span><span>-₹<span id="cart-discount">0</span></span></div>
+    <div class="cart-grand-total"><span>Total</span><span>₹<span id="cart-total-amount">0</span></span></div>
+    <select id="payment-method" class="pm-select">
+      <option value="cod">Cash on Delivery</option>
+      <option value="prepaid">Online Payment (Card/UPI)</option>
+    </select>
+    <button id="checkout-btn" onclick="placeOrder()">Order Place Karein</button>
+  </div>
+</div>
+
+<script>
+  const API_BASE = "https://kisswaar-x-store.onrender.com/api";
+
+  let products = [];
+  let cart = {};
+  let isRegisterMode = false;
+  let appliedCoupon = null;
+  let currentPdProduct = null;
+
+  // ---------- AUTH ----------
+  function toggleAuth() { document.getElementById('auth-overlay').classList.toggle('show'); }
+
+  function toggleAuthMode() {
+    isRegisterMode = !isRegisterMode;
+    document.getElementById('auth-title').textContent = isRegisterMode ? 'Naya Account Banayein' : 'Login Karein';
+    document.getElementById('auth-name-field').style.display = isRegisterMode ? 'block' : 'none';
+    document.getElementById('auth-phone-field').style.display = isRegisterMode ? 'block' : 'none';
+    document.getElementById('auth-toggle-text').textContent = isRegisterMode ? 'Pehle se account hai? Login karein' : 'Naya account banayein';
+  }
+
+  async function submitAuth() {
+    const email = document.getElementById('auth-email').value;
+    const password = document.getElementById('auth-password').value;
+    try {
+      let res;
+      if (isRegisterMode) {
+        res = await fetch(`${API_BASE}/auth/customer/register`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: document.getElementById('auth-name').value, email, password, phone: document.getElementById('auth-phone').value }),
+        });
+      } else {
+        res = await fetch(`${API_BASE}/auth/login`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      localStorage.setItem('customerToken', data.token);
+      localStorage.setItem('customerName', data.user.name);
+      updateAuthUI();
+      toggleAuth();
+      showStatus(`Welcome back, ${data.user.name}!`);
+      loadNotifications();
+      loadRecentlyViewed();
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  }
+
+  function updateAuthUI() {
+    const name = localStorage.getItem('customerName');
+    if (name) {
+      document.getElementById('login-greeting').textContent = `Hello, ${name.split(' ')[0]}`;
+      document.getElementById('login-label').textContent = 'Logout';
+      document.getElementById('login-nav-btn').onclick = () => {
+        localStorage.removeItem('customerToken');
+        localStorage.removeItem('customerName');
+        location.reload();
+      };
+    }
+  }
+  updateAuthUI();
+
+  function authHeader() {
+    const token = localStorage.getItem('customerToken');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  function showStatus(message, isError = false) {
+    const bar = document.getElementById('status-bar');
+    bar.textContent = message;
+    bar.className = isError ? 'show error' : 'show';
+    setTimeout(() => bar.classList.remove('show'), 4000);
+  }
+
+  // ---------- CATEGORIES ----------
+  async function loadCategories() {
+    try {
+      const res = await fetch(`${API_BASE}/categories`);
+      const data = await res.json();
+      const strip = document.getElementById('category-strip');
+      data.categories.forEach((cat) => {
+        const span = document.createElement('span');
+        span.textContent = cat;
+        span.onclick = () => filterByCategory(cat, span);
+        strip.appendChild(span);
+      });
+    } catch (err) { /* categories fail ho to bhi products dikhte rahenge */ }
+  }
+
+  function filterByCategory(cat, el) {
+    document.querySelectorAll('.header-second span').forEach((s) => s.classList.remove('active'));
+    if (el) el.classList.add('active'); else document.querySelector('.header-second span').classList.add('active');
+    if (!cat) { renderProducts(products); document.getElementById('section-title').firstChild.textContent = 'Sab Products'; return; }
+    const filtered = products.filter((p) => p.category === cat);
+    document.getElementById('section-title').firstChild.textContent = cat;
+    renderProducts(filtered);
+  }
+
+  // ---------- PRODUCTS ----------
+  async function loadProducts() {
+    try {
+      const res = await fetch(`${API_BASE}/products`);
+      products = await res.json();
+      renderProducts(products);
+    } catch (err) {
+      document.getElementById('empty-state').style.display = 'block';
+      document.getElementById('empty-state').textContent = 'Backend se connect nahi ho paya. Thodi der baad try karein.';
+    }
+  }
+
+  function filterProducts() {
+    const q = document.getElementById('search-input').value.toLowerCase().trim();
+    if (!q) { document.getElementById('section-title').firstChild.textContent = 'Sab Products'; renderProducts(products); return; }
+    const filtered = products.filter(p => p.name.toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q));
+    document.getElementById('section-title').firstChild.textContent = `"${q}" ke liye ${filtered.length} results`;
+    renderProducts(filtered);
+  }
+
+  let wishlistIds = new Set();
+
+  function cardHtml(p) {
+    const inWishlist = wishlistIds.has(p._id);
+    return `
+      <div class="card">
+        <button class="wishlist-btn ${inWishlist ? 'active' : ''}" onclick="event.stopPropagation();toggleWishlist('${p._id}', this)">${inWishlist ? '♥' : '♡'}</button>
+        <div class="card-img" onclick="openProductDetail('${p._id}')">${p.images && p.images[0] ? `<img src="${p.images[0]}" onerror="this.parentElement.textContent='No Image'">` : 'No Image'}</div>
+        <h3 onclick="openProductDetail('${p._id}')">${p.name}</h3>
+        ${p.avgRating > 0 ? `<div class="rating-row"><span class="rating-badge">${p.avgRating} ★</span><span class="rating-count">(${p.reviewCount})</span></div>` : ''}
+        <div class="price-row"><span class="rupee">₹</span><span class="price">${p.sellingPrice ?? '—'}</span></div>
+        <div class="stock-badge ${p.stock > 0 ? 'in' : 'out'}">${p.stock > 0 ? 'In Stock' : 'Out of Stock'}</div>
+        <div class="card-buttons">
+          <button class="add-btn" ${p.stock <= 0 ? 'disabled' : ''} onclick="addToCart('${p._id}')">${p.stock <= 0 ? 'Out of Stock' : 'Cart'}</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderProducts(list) {
+    const grid = document.getElementById('products');
+    const empty = document.getElementById('empty-state');
+    if (!list.length) {
+      empty.style.display = 'block';
+      empty.textContent = 'Koi product nahi mila.';
+      grid.innerHTML = '';
+      return;
+    }
+    empty.style.display = 'none';
+    grid.innerHTML = list.map(cardHtml).join('');
+  }
+
+  // ---------- WISHLIST ----------
+  async function loadWishlistIds() {
+    if (!localStorage.getItem('customerToken')) return;
+    try {
+      const res = await fetch(`${API_BASE}/wishlist`, { headers: authHeader() });
+      const data = await res.json();
+      wishlistIds = new Set(data.map((p) => p._id));
+      renderProducts(products);
+    } catch (err) {}
+  }
+
+  async function toggleWishlist(productId, btnEl) {
+    if (!localStorage.getItem('customerToken')) { showStatus('Pehle login karein', true); toggleAuth(); return; }
+    try {
+      const res = await fetch(`${API_BASE}/wishlist/${productId}`, { method: 'POST', headers: authHeader() });
+      const data = await res.json();
+      if (data.inWishlist) { wishlistIds.add(productId); btnEl.classList.add('active'); btnEl.textContent = '♥'; }
+      else { wishlistIds.delete(productId); btnEl.classList.remove('active'); btnEl.textContent = '♡'; }
+      showStatus(data.message);
+    } catch (err) { showStatus('Error: ' + err.message, true); }
+  }
+
+  async function openWishlist() {
+    if (!localStorage.getItem('customerToken')) { showStatus('Pehle login karein', true); toggleAuth(); return; }
+    document.getElementById('wishlist-overlay').classList.add('show');
+    try {
+      const res = await fetch(`${API_BASE}/wishlist`, { headers: authHeader() });
+      const data = await res.json();
+      document.getElementById('wishlist-content').innerHTML = data.length
+        ? data.map(cardHtml).join('')
+        : '<p style="grid-column:1/-1;text-align:center;color:var(--muted);padding:20px">Wishlist khali hai</p>';
+    } catch (err) {}
+  }
+  function closeWishlist() { document.getElementById('wishlist-overlay').classList.remove('show'); }
+
+  // ---------- RECENTLY VIEWED ----------
+  async function loadRecentlyViewed() {
+    if (!localStorage.getItem('customerToken')) return;
+    try {
+      const res = await fetch(`${API_BASE}/recently-viewed`, { headers: authHeader() });
+      const data = await res.json();
+      if (data.length) {
+        document.getElementById('recently-viewed-section').style.display = 'block';
+        document.getElementById('recently-viewed-rail').innerHTML = data.map((r) => cardHtml(r.product)).join('');
+      }
+    } catch (err) {}
+  }
+
+  async function trackView(productId) {
+    if (!localStorage.getItem('customerToken')) return;
+    fetch(`${API_BASE}/recently-viewed/${productId}`, { method: 'POST', headers: authHeader() }).catch(() => {});
+  }
+
+  // ---------- PRODUCT DETAIL ----------
+  async function openProductDetail(productId) {
+    trackView(productId);
+    const overlay = document.getElementById('pd-overlay');
+    overlay.classList.add('show');
+    document.getElementById('pd-content').innerHTML = 'Loading...';
+
+    try {
+      const [prodRes, reviewsRes] = await Promise.all([
+        fetch(`${API_BASE}/products/${productId}`),
+        fetch(`${API_BASE}/products/${productId}/reviews`),
+      ]);
+      const product = await prodRes.json();
+      const reviews = await reviewsRes.json();
+      currentPdProduct = product;
+
+      const isLoggedIn = !!localStorage.getItem('customerToken');
+      document.getElementById('pd-content').innerHTML = `
+        <div class="pd-img">${product.images && product.images[0] ? `<img src="${product.images[0]}">` : 'No Image'}</div>
+        <div class="pd-title">${product.name}</div>
+        ${product.avgRating > 0 ? `<div class="rating-row" style="margin-bottom:8px"><span class="rating-badge">${product.avgRating} ★</span><span class="rating-count">${product.reviewCount} reviews</span></div>` : ''}
+        <div class="pd-desc">${product.description || ''}</div>
+        <div class="price-row" style="margin-bottom:10px"><span class="rupee">₹</span><span class="price" style="font-size:22px">${product.sellingPrice}</span></div>
+        <button class="add-btn" style="width:100%;padding:10px" ${product.stock <= 0 ? 'disabled' : ''} onclick="addToCart('${product._id}');closeProductDetail()">
+          ${product.stock <= 0 ? 'Out of Stock' : 'Cart me Daalein'}
+        </button>
+        <div style="margin-top:16px">
+          <div style="font-weight:700;font-size:14px;margin-bottom:6px">Review Likhein</div>
+          ${isLoggedIn ? `
+            <div class="rate-input" id="rate-input">
+              ${[1,2,3,4,5].map(n => `<span data-val="${n}" onclick="setPdRating(${n})">★</span>`).join('')}
+            </div>
+            <textarea id="pd-review-text" placeholder="Apna review likhein..." style="width:100%;padding:8px;border:1px solid var(--line);border-radius:4px;font-size:13px;margin-bottom:8px" rows="2"></textarea>
+            <button class="modal-submit" onclick="submitReview('${product._id}')">Submit Review</button>
+          ` : `<p style="font-size:12.5px;color:var(--muted)">Review dene ke liye login karein</p>`}
+        </div>
+        <div style="margin-top:14px">
+          <div style="font-weight:700;font-size:14px">Reviews</div>
+          ${reviews.length ? reviews.map(r => `
+            <div class="review-item">
+              <div class="rname">${r.customer?.name || 'User'} <span class="stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span></div>
+              <div>${r.comment || ''}</div>
+            </div>
+          `).join('') : '<p style="font-size:12.5px;color:var(--muted);padding:10px 0">Abhi koi review nahi hai</p>'}
+        </div>
+      `;
+    } catch (err) {
+      document.getElementById('pd-content').innerHTML = 'Load nahi ho paya';
+    }
+  }
+
+  function closeProductDetail() { document.getElementById('pd-overlay').classList.remove('show'); }
+
+  let pdSelectedRating = 0;
+  function setPdRating(n) {
+    pdSelectedRating = n;
+    document.querySelectorAll('#rate-input span').forEach((s, i) => s.classList.toggle('on', i < n));
+  }
+
+  async function submitReview(productId) {
+    if (!pdSelectedRating) { showStatus('Rating select karein', true); return; }
+    try {
+      const res = await fetch(`${API_BASE}/products/${productId}/reviews`, {
+        method: 'POST', headers: { ...authHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating: pdSelectedRating, comment: document.getElementById('pd-review-text').value }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      showStatus('Review save ho gaya!');
+      openProductDetail(productId);
+    } catch (err) { showStatus(err.message, true); }
+  }
+
+  // ---------- CART ----------
+  function addToCart(productId) {
+    cart[productId] = (cart[productId] || 0) + 1;
+    updateCartUI();
+    showStatus('Product cart me daal diya');
+  }
+
+  function changeQty(productId, delta) {
+    cart[productId] = (cart[productId] || 0) + delta;
+    if (cart[productId] <= 0) delete cart[productId];
+    updateCartUI();
+  }
+
+  async function saveForLaterFromCart(productId) {
+    const qty = cart[productId] || 1;
+    try {
+      await fetch(`${API_BASE}/save-for-later/${productId}`, {
+        method: 'POST', headers: { ...authHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity: qty }),
+      });
+      delete cart[productId];
+      updateCartUI();
+      showStatus('Save for later me daal diya');
+    } catch (err) { showStatus('Login karein pehle', true); }
+  }
+
+  function updateCartUI() {
+    const count = Object.values(cart).reduce((a, b) => a + b, 0);
+    document.getElementById('cart-count-badge').textContent = count;
+
+    const itemsDiv = document.getElementById('cart-items');
+    let subtotal = 0;
+
+    if (!count) {
+      itemsDiv.innerHTML = '<div class="empty-cart">Aapka cart khali hai</div>';
+    } else {
+      itemsDiv.innerHTML = Object.entries(cart).map(([id, qty]) => {
+        const product = products.find(p => p._id === id);
+        if (!product) return '';
+        const lineTotal = product.sellingPrice * qty;
+        subtotal += lineTotal;
+        return `
+          <div class="cart-item">
+            <div style="flex:1">
+              <div class="name">${product.name}</div>
+              <div class="qty-controls">
+                <button onclick="changeQty('${id}',-1)">-</button>
+                <span>${qty}</span>
+                <button onclick="changeQty('${id}',1)">+</button>
+              </div>
+              <div class="save-later-link" onclick="saveForLaterFromCart('${id}')">Save for later</div>
+            </div>
+            <span>₹${lineTotal}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    const discount = appliedCoupon ? appliedCoupon.discount : 0;
+    const total = Math.max(0, subtotal - discount);
+    document.getElementById('cart-subtotal').textContent = subtotal;
+    document.getElementById('cart-total-amount').textContent = total;
+    document.getElementById('cart-total-mini').textContent = total;
+    document.getElementById('discount-row').style.display = discount > 0 ? 'flex' : 'none';
+    document.getElementById('cart-discount').textContent = discount;
+  }
+
+  async function applyCoupon() {
+    const code = document.getElementById('coupon-input').value.trim();
+    if (!code) return;
+    let subtotal = 0;
+    Object.entries(cart).forEach(([id, qty]) => {
+      const p = products.find(pr => pr._id === id);
+      if (p) subtotal += p.sellingPrice * qty;
+    });
+    try {
+      const res = await fetch(`${API_BASE}/coupons/validate`, {
+        method: 'POST', headers: { ...authHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, cartTotal: subtotal }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      appliedCoupon = { code: data.code, discount: data.discount };
+      document.getElementById('coupon-applied-msg').innerHTML = `<div class="coupon-applied">✓ "${data.code}" applied — ₹${data.discount} off</div>`;
+      updateCartUI();
+    } catch (err) {
+      showStatus(err.message, true);
+      document.getElementById('coupon-applied-msg').innerHTML = '';
+      appliedCoupon = null;
+    }
+  }
+
+  function toggleCart() {
+    document.getElementById('cart-panel').classList.toggle('open');
+    document.getElementById('cart-overlay').classList.toggle('show');
+  }
+
+  // ---------- ORDER ----------
+  async function placeOrder() {
+    const items = Object.entries(cart).map(([productId, quantity]) => ({ productId, quantity }));
+    if (!items.length) { showStatus('Cart khali hai', true); return; }
+    const token = localStorage.getItem('customerToken');
+    if (!token) { showStatus('Pehle login karein', true); toggleCart(); toggleAuth(); return; }
+
+    const paymentMethod = document.getElementById('payment-method').value;
+
+    try {
+      const res = await fetch(`${API_BASE}/orders`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          items, paymentMethod, couponCode: appliedCoupon ? appliedCoupon.code : undefined,
+          deliveryAddress: { street: '', city: '', state: '', pincode: '' },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      if (paymentMethod === 'cod') {
+        showStatus(`Order confirm! Order number: ${data.order.orderNumber}`);
+        cart = {}; appliedCoupon = null; document.getElementById('coupon-applied-msg').innerHTML = '';
+        updateCartUI(); toggleCart(); loadProducts();
+      } else {
+        await startRazorpayPayment(data.order, token);
+      }
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  }
+
+  async function startRazorpayPayment(order, token) {
+    try {
+      const res = await fetch(`${API_BASE}/payments/create-razorpay-order/${order._id}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+      const paymentData = await res.json();
+      if (!res.ok) throw new Error(paymentData.message);
+
+      const options = {
+        key: paymentData.key, amount: paymentData.amount, currency: paymentData.currency,
+        order_id: paymentData.razorpayOrderId, name: 'Dukaan', description: `Order ${order.orderNumber}`,
+        handler: async function (response) {
+          const verifyRes = await fetch(`${API_BASE}/payments/verify`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              orderId: order._id, razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id, razorpay_signature: response.razorpay_signature,
+            }),
+          });
+          const verifyData = await verifyRes.json();
+          if (verifyRes.ok) {
+            showStatus('Payment successful! Order confirm ho gaya.');
+            cart = {}; appliedCoupon = null; updateCartUI(); toggleCart(); loadProducts();
+          } else { showStatus('Payment verify nahi hua: ' + verifyData.message, true); }
+        },
+        theme: { color: '#ff6b35' },
+      };
+      new Razorpay(options).open();
+    } catch (err) { showStatus('Payment start nahi ho paya: ' + err.message, true); }
+  }
+
+  // ---------- NOTIFICATIONS ----------
+  async function loadNotifications() {
+    if (!localStorage.getItem('customerToken')) return;
+    try {
+      const res = await fetch(`${API_BASE}/notifications`, { headers: authHeader() });
+      const data = await res.json();
+      const unread = data.filter((n) => !n.isRead).length;
+      const badge = document.getElementById('notif-badge');
+      if (unread > 0) { badge.style.display = 'flex'; badge.textContent = unread; } else { badge.style.display = 'none'; }
+      document.getElementById('notif-list').innerHTML = data.length
+        ? data.map((n) => `<div class="notif-item ${n.isRead ? '' : 'unread'}">${n.message}<div style="font-size:10.5px;color:var(--muted);margin-top:3px">${new Date(n.createdAt).toLocaleString('en-IN')}</div></div>`).join('')
+        : '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Koi notification nahi</div>';
+    } catch (err) {}
+  }
+
+  function openNotifications() {
+    if (!localStorage.getItem('customerToken')) { showStatus('Pehle login karein', true); toggleAuth(); return; }
+    document.getElementById('notif-panel').classList.add('open');
+    loadNotifications();
+    fetch(`${API_BASE}/notifications/read-all`, { method: 'PUT', headers: authHeader() }).then(() => {
+      setTimeout(() => document.getElementById('notif-badge').style.display = 'none', 500);
+    });
+  }
+  function closeNotifications() { document.getElementById('notif-panel').classList.remove('open'); }
+
+  // ---------- INIT ----------
+  loadProducts().then(() => { loadWishlistIds(); });
+  loadCategories();
+  loadNotifications();
+  loadRecentlyViewed();
+</script>
+
+</body>
+</html>
